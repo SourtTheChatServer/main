@@ -4,7 +4,7 @@
 image: Visual Studio 2022
 
 # We assume your encrypted API token is already stored as an environment variable
-# in the AppVeyor project settings with the name 'API_TOKEN'.
+# in the AppVeyor project settings with the name 'API_TOKEN'. a
 
 # We don't need to build any code.
 build: off
